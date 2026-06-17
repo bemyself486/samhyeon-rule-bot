@@ -103,8 +103,16 @@ if st.session_state.vectorstore is not None:
         st.session_state.messages.append({"role": "user", "content": user_query})
         
         with st.chat_message("assistant"):
-            result = st.write_stream(rag_chain.stream(user_query))
-            st.session_state.messages.append({"role": "assistant", "content": result})
+            # ⭐️ try-except 안전망을 설치하여 에러가 나도 앱이 죽지 않게 보호합니다.
+            try:
+                with st.spinner("🔍 수백 페이지의 규정집을 꼼꼼히 뒤져보는 중입니다... (약 10~15초 소요)"):
+                    result = st.write_stream(rag_chain.stream(user_query))
+                st.session_state.messages.append({"role": "assistant", "content": result})
+                
+            except Exception as e:
+                # 에러가 발생하면 빨간 창 대신 아래의 부드러운 경고 메시지를 띄웁니다.
+                st.warning("앗! 답변을 가져오는 중에 통신이 끊기거나 새 질문이 겹쳤습니다. 잠시 후 질문을 다시 입력해 주세요! 😅")
+                
 else:
     if not api_key:
         st.info("💡 왼쪽 사이드바에 Google Gemini API Key를 먼저 입력해 주세요.")
