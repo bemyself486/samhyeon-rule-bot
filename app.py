@@ -110,8 +110,15 @@ if st.session_state.vectorstore is not None:
                 st.session_state.messages.append({"role": "assistant", "content": result})
                 
             except Exception as e:
-                # 에러가 발생하면 빨간 창 대신 아래의 부드러운 경고 메시지를 띄웁니다.
+                # 1. 일반 사용자용 부드러운 경고창 (기존과 동일)
                 st.warning("앗! 답변을 가져오는 중에 통신이 끊기거나 새 질문이 겹쳤습니다. 잠시 후 질문을 다시 입력해 주세요! 😅")
+                
+                # 2. 개발자용 숨겨진 에러 로그 창 (클릭해야 열림)
+                with st.expander("🛠️ (관리자용) 상세 에러 원인 보기"):
+                    st.error(f"실제 에러 내용: {e}")
+                
+                # 3. 챗봇 서버 뒷단(콘솔)에도 기록 남기기
+                print(f"🚨 챗봇 에러 발생: {e}")
                 
 else:
     if not api_key:
