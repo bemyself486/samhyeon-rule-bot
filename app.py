@@ -25,7 +25,7 @@ with st.sidebar:
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
 if "messages" not in st.session_state:
-    st.session_state.messages = [] 
+    st.session_state.messages = []
 if "index_status" not in st.session_state:
     st.session_state.index_status = "대기 중"
 
@@ -154,6 +154,7 @@ def retrieve_docs(query, vectorstore):
 
     return merged_docs[:8]
 
+
 # 3. 문서 인덱스 연결
 if api_key and st.session_state.vectorstore is None:
     current_manifest = get_pdf_manifest(pdf_files)
@@ -210,24 +211,31 @@ if st.session_state.vectorstore is not None:
     def format_docs_with_source(docs):
         formatted_texts = []
         for doc in docs:
-            filename = doc.metadata.get('source', '알 수 없는 파일')
-            page = doc.metadata.get('page', 0) + 1 
+            filename = doc.metadata.get("source", "알 수 없는 파일")
+            page = doc.metadata.get("page", 0) + 1
             formatted_texts.append(f"[출처: {filename}, {page}페이지]\n{doc.page_content}")
         return "\n\n".join(formatted_texts)
 
     rag_chain = prompt | llm | StrOutputParser()
 
     user_query = st.chat_input("질문 (예: 휴대전화 사용 규정은?)")
-    
+
     if user_query:
         st.chat_message("user").write(user_query)
         st.session_state.messages.append({"role": "user", "content": user_query})
-        
+
         with st.chat_message("assistant"):
-            docs = retrieve_docs(user_query, st.session_state.vectorstore)
-            context = format_docs_with_source(docs)
-            result = st.write_stream(rag_chain.stream({"context": context, "input": user_query}))
-            st.session_state.messages.append({"role": "assistant", "content": result})
+            try:
+                with st.spinner("🔍 수백 페이지의 규정집을 꼼꼼히 뒤져보는 중입니다... (약 10~15초 소요)"):
+                    docs = retrieve_docs(user_query, st.session_state.vectorstore)
+                    context = format_docs_with_source(docs)
+                    result = st.write_stream(rag_chain.stream({"context": context, "input": user_query}))
+                st.session_state.messages.append({"role": "assistant", "content": result})
+            except Exception as e:
+                st.warning("앗! 답변을 가져오는 중에 통신이 끊기거나 새 질문이 겹쳤습니다. 잠시 후 질문을 다시 입력해 주세요! 😅")
+                with st.expander("🛠️ (관리자용) 상세 에러 원인 보기"):
+                    st.error(f"실제 에러 내용: {e}")
+                print(f"🚨 챗봇 에러 발생: {e}")
 else:
     if not api_key:
         st.info("💡 왼쪽 사이드바에 Google Gemini API Key를 먼저 입력해 주세요.")
