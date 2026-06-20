@@ -41,7 +41,6 @@ def get_pdf_manifest(files):
         {
             "name": os.path.basename(file),
             "size": os.path.getsize(file),
-            "mtime": os.path.getmtime(file),
         }
         for file in files
     ]
@@ -227,17 +226,28 @@ if api_key and st.session_state.vectorstore is None:
     files_key = json.dumps(pdf_files, ensure_ascii=False)
 
     if index_files_exist() and saved_manifest in (None, current_manifest):
-        st.session_state.vectorstore = load_vectorstore(api_key, manifest_key)
-        if saved_manifest is None:
+        try:
+            st.session_state.vectorstore = load_vectorstore(api_key, manifest_key)
             write_manifest(current_manifest)
-        st.session_state.index_status = "저장된 인덱스 연결됨"
-        st.success("⚡ 저장된 문서 인덱스를 빠르게 연결했습니다!")
+            st.session_state.index_status = "저장된 인덱스 연결됨"
+            st.success("⚡ 저장된 문서 인덱스를 빠르게 연결했습니다!")
+        except Exception as e:
+            st.session_state.index_status = "저장된 인덱스 연결 실패"
+            st.warning("저장된 검색 인덱스를 연결하지 못했습니다. PDF가 바뀌었거나 인덱스 파일이 손상되었을 수 있어요.")
+            with st.expander("🛠️ (관리자용) 상세 원인 보기"):
+                st.error(f"실제 에러 내용: {e}")
     elif pdf_files:
-        with st.spinner("문서 변경을 반영해 검색 인덱스를 만드는 중입니다..."):
-            st.session_state.vectorstore = build_vectorstore(api_key, files_key)
-            write_manifest(current_manifest)
-        st.session_state.index_status = "문서 변경 반영 후 새로 생성됨"
-        st.success("✨ 검색 인덱스 저장이 완료되었습니다!")
+        try:
+            with st.spinner("문서 변경을 반영해 검색 인덱스를 만드는 중입니다..."):
+                st.session_state.vectorstore = build_vectorstore(api_key, files_key)
+                write_manifest(current_manifest)
+            st.session_state.index_status = "문서 변경 반영 후 새로 생성됨"
+            st.success("✨ 검색 인덱스 저장이 완료되었습니다!")
+        except Exception as e:
+            st.session_state.index_status = "인덱스 생성 실패"
+            st.error("검색 인덱스를 새로 만드는 중 문제가 생겼습니다. API 키 권한, 할당량, 또는 임베딩 모델 접근 가능 여부를 확인해 주세요.")
+            with st.expander("🛠️ (관리자용) 상세 원인 보기"):
+                st.error(f"실제 에러 내용: {e}")
 
 with st.sidebar:
     with st.expander("🔎", expanded=False):
