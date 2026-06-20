@@ -33,6 +33,7 @@ if "index_status" not in st.session_state:
 pdf_files = sorted(glob.glob("*.pdf"))
 DB_DIR = "faiss_index"
 MANIFEST_FILE = os.path.join(DB_DIR, "manifest.json")
+APP_VERSION_FILE = "app_version.json"
 
 
 def get_pdf_manifest(files):
@@ -50,6 +51,17 @@ def read_manifest():
     if not os.path.exists(MANIFEST_FILE):
         return None
     with open(MANIFEST_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def read_app_version():
+    if not os.path.exists(APP_VERSION_FILE):
+        return {
+            "updated_at": "기록 없음",
+            "summary": "앱 갱신 정보 없음",
+        }
+
+    with open(APP_VERSION_FILE, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -229,11 +241,14 @@ if api_key and st.session_state.vectorstore is None:
 
 with st.sidebar:
     with st.expander("🔎", expanded=False):
+        app_version = read_app_version()
         st.caption(f"문서: {len(pdf_files)}개")
         st.caption(f"인덱스: {st.session_state.index_status}")
         st.caption("검색: 의미 검색 + 키워드 보강")
         st.caption(f"인덱스 파일: {'있음' if index_files_exist() else '없음'}")
-        st.caption(f"마지막 갱신: {get_index_updated_at()}")
+        st.caption(f"문서 인덱스 갱신: {get_index_updated_at()}")
+        st.caption(f"앱 갱신: {app_version.get('updated_at', '기록 없음')}")
+        st.caption(f"최근 변경: {app_version.get('summary', '앱 갱신 정보 없음')}")
 
 # 4. 과거 채팅 내용 화면에 그리기
 for message_index, message in enumerate(st.session_state.messages):
