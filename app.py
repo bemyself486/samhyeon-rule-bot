@@ -155,6 +155,56 @@ def retrieve_docs(query, vectorstore):
     return merged_docs[:8]
 
 
+def build_source_items(docs):
+    source_items = []
+    seen = set()
+
+    for doc in docs:
+        filename = doc.metadata.get("source", "알 수 없는 파일")
+        page = doc.metadata.get("page", 0) + 1
+        key = (filename, page, doc.page_content[:120])
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        source_items.append(
+            {
+                "filename": filename,
+                "page": page,
+                "content": doc.page_content.strip(),
+            }
+        )
+
+    return source_items
+
+
+def render_source_preview(source_items, message_index):
+    if not source_items:
+        return
+
+    with st.expander("📎 참고 원문 보기", expanded=False):
+        for index, item in enumerate(source_items, start=1):
+            filename = item["filename"]
+            page = item["page"]
+            content = item["content"]
+
+            st.markdown(f"**{index}. {filename} · {page}페이지**")
+            st.caption(content[:900] + ("..." if len(content) > 900 else ""))
+
+            if os.path.exists(filename):
+                with open(filename, "rb") as file:
+                    st.download_button(
+                        "PDF 열기/다운로드",
+                        data=file,
+                        file_name=filename,
+                        mime="application/pdf",
+                        key=f"source-{message_index}-{index}",
+                    )
+
+            st.divider()
+
+
 # 3. 문서 인덱스 연결
 if api_key and st.session_state.vectorstore is None:
     current_manifest = get_pdf_manifest(pdf_files)
@@ -184,9 +234,11 @@ with st.sidebar:
         st.caption(f"마지막 갱신: {get_index_updated_at()}")
 
 # 4. 과거 채팅 내용 화면에 그리기
-for message in st.session_state.messages:
+for message_index, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
         st.write(message["content"])
+        if message["role"] == "assistant":
+            render_source_preview(message.get("sources", []), message_index)
 
 # 5. 질문 및 답변 로직
 if st.session_state.vectorstore is not None:
@@ -230,7 +282,15 @@ if st.session_state.vectorstore is not None:
                     docs = retrieve_docs(user_query, st.session_state.vectorstore)
                     context = format_docs_with_source(docs)
                     result = st.write_stream(rag_chain.stream({"context": context, "input": user_query}))
-                st.session_state.messages.append({"role": "assistant", "content": result})
+                source_items = build_source_items(docs)
+                render_source_preview(source_items, len(st.session_state.messages))
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": result,
+                        "sources": source_items,
+                    }
+                )
             except Exception as e:
                 st.warning("앗! 답변을 가져오는 중에 통신이 끊기거나 새 질문이 겹쳤습니다. 잠시 후 질문을 다시 입력해 주세요! 😅")
                 with st.expander("🛠️ (관리자용) 상세 에러 원인 보기"):
