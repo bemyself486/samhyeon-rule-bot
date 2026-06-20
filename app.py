@@ -10,6 +10,7 @@ import glob
 import json
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # 1. 웹앱 기본 설정
 st.set_page_config(page_title="우리학교 규정찾아봇", page_icon="🏫")
@@ -69,7 +70,8 @@ def get_index_updated_at():
     if not os.path.exists(MANIFEST_FILE):
         return "기록 없음"
     updated_at = os.path.getmtime(MANIFEST_FILE)
-    return datetime.fromtimestamp(updated_at).strftime("%Y-%m-%d %H:%M")
+    kst_time = datetime.fromtimestamp(updated_at, tz=ZoneInfo("Asia/Seoul"))
+    return kst_time.strftime("%Y-%m-%d %H:%M KST")
 
 
 @st.cache_resource(show_spinner=False)
